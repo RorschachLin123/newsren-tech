@@ -8,7 +8,7 @@ import time
 from datetime import timedelta
 
 from . import brief, evals, sources, verify
-from .llm import LLM, BudgetExceeded
+from .llm import LLM, BudgetExceeded, label as llm_label
 from .store import Ledger, iso, load_topic, now, short_hash
 
 
@@ -98,7 +98,7 @@ def run(topic_id, max_calls=20, log=print):
     for it in fresh:
         ledger.mark_seen(it["url"], it["retrieved_at"])
 
-    record.update(finished_at=iso(now()), llm_calls=llm.calls, llm_cost_usd=round(llm.cost_usd, 4),
+    record.update(finished_at=iso(now()), llm=llm_label(llm), llm_calls=llm.calls, llm_cost_usd=round(llm.cost_usd, 4),
                   alert=bool(matches), alert_claims=[m["id"] for m in matches],
                   seconds=round(time.time() - started.timestamp(), 1))
     path = brief.write(llm, topic, record, checked, matches, ledger, note)

@@ -74,23 +74,66 @@ The LLM never decides the label directly. This is what separates a vendor announ
 
 Concepts behind the news (what a benchmark is, why independent evaluation matters, what an error bar means) are taught too; facts about the news itself must carry citations.
 
-## Run it
+## Install and reproduce
 
-Python 3.10+, no third-party packages. LLM access: the Claude Code CLI (`claude -p`, default) or set `ANTHROPIC_API_KEY` to call the API directly.
+Needs Python 3.10 or newer and nothing else: no packages to install. On Windows use `python` instead of `python3`.
+
+**1. Get the code**
 
 ```bash
-python3 newsren.py topics
-python3 newsren.py run independent-model-evals
-python3 newsren.py pending
-python3 newsren.py approve independent-model-evals <BRIEFING_ID> --editor <name>
-python3 newsren.py ask independent-model-evals "Has anyone independently tested Kimi K3.1 Pro?"
-python3 newsren.py learn independent-model-evals <BRIEFING_ID> --level student
-python3 -m unittest discover tests      # offline, no model calls: label rules, alert -> approval -> dedup, ask, learn
+git clone <this repository's URL>
+cd newsren-tech
 ```
 
-Add a topic by copying `topics/independent-model-evals.json`. Reports go to `out/<topic>/`; the ledger is `data/<topic>/ledger.json`.
+**2. Add an LLM key.** Copy `.env.example` to `.env` and fill in one provider. DeepSeek is the default and the
+cheapest; the Anthropic API, any OpenAI-compatible endpoint, or the Claude Code CLI also work (see the comments
+in `.env.example`). `.env` is git-ignored.
 
-## Sample live runs (2026-10-25)
+```bash
+cp .env.example .env
+```
+
+**3. Check the setup.** `doctor` makes no LLM calls. It checks Python, the key (by listing models, which is
+free), that every approved source answers, and prints a rough cost per command.
+
+```bash
+python3 newsren.py doctor
+```
+
+**4. Run it, in the browser or on the command line.**
+
+```bash
+python3 newsren.py serve          # then open http://127.0.0.1:8000
+```
+
+The page shows the saved question, every claim with its evidence label, and every report. Its buttons are the
+same steps as the commands below: **Run now**, **Ask**, **Explain for** (learning material) and **Approve**.
+
+```bash
+python3 newsren.py run independent-model-evals            # one Follow a Topic run (~8 LLM calls)
+python3 newsren.py pending                                # drafts waiting for editorial review
+python3 newsren.py approve independent-model-evals <BRIEFING_ID> --editor <name>
+python3 newsren.py ask independent-model-evals "Has anyone independently tested Kimi K3.1 Pro?"   # 2 calls
+python3 newsren.py learn independent-model-evals <BRIEFING_ID> --level student                   # 1 call per level
+python3 -m unittest discover tests      # 30 offline tests, no network or LLM calls
+```
+
+**Cost.** With DeepSeek (`deepseek-flash`, $0.30 / $1.20 per 1M input / output tokens at peak, half off-peak) a
+run, an ask and three learning levels together come to a few cents. Every report ends with its LLM calls, the
+model used and the cost; each run's totals are also kept in `data/<topic>/ledger.json`.
+
+**What "reproduce" means here.** The sources are live, so a run today reads today's news and evaluation data and
+will not match the 2026-10-25 sample below word for word. What should reproduce is the behaviour: developer
+claims labelled *only the originator's claim*, a model's own results from Epoch AI or another evaluator labelled
+*independently verified*, an alert only when the saved condition is met, and nothing delivered until an editor
+approves it. A fresh clone has no ledger, so the first run looks back `lookback_days` (10) days, and LMArena
+only stores a baseline on that first run. The committed reports in `out/independent-model-evals/` are the
+original sample run, shown on the web page next to your own.
+
+Add a topic by copying `topics/independent-model-evals.json`. Reports go to `out/<topic>/`; the ledger is
+`data/<topic>/ledger.json`.
+
+## Sample live runs (2026-10-25, Claude Sonnet 5.5 via `claude -p`)
 
 - **Before the evaluation sources were added:** 25 new items, 3–5 claims checked, all *only the originator's claim* (e.g. Moonshot's own Kimi K3.1 Pro benchmarks), so no alert.
 - **With them:** 41 items, 25 new, 5 claims checked. Epoch AI's new runs of DeepSeek V4.1 Flash and Muse Spark Open (GPQA Diamond, FrontierMath) were *independently verified*, with Artificial Analysis's GPQA figure for Muse Spark Open matching Epoch's within a point; Moonshot's Kimi K3.1 Pro claims stayed *originator only*. **Alert drafted**, waiting for editorial review: `out/independent-model-evals/*_ALERT.md`. 8 LLM calls, $0.22, 85 s.
@@ -101,4 +144,4 @@ Add a topic by copying `topics/independent-model-evals.json`. Reports go to `out
 - LMArena's dataset API is sometimes flaky (HTTP 500 on `/filter`); we use `/rows`. Artificial Analysis data is scraped from their page and may break if the page changes; their key-based API would be sturdier.
 - Hacker News search is keyword AND-matching; queries back off to shorter forms, but recall is still limited.
 - Story timelines (plan 2.2) are only claim histories in the ledger; no clustering or timeline UI yet.
-- Not built yet: Research Paper Decoder, story timeline view, web UI, scheduled runs.
+- Not built yet: Research Paper Decoder, story timeline view, scheduled runs, email delivery. The web page is a local single-user view, not a public site.

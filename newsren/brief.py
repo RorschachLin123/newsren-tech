@@ -7,7 +7,7 @@ citation points at a real retrieved source. Citations the LLM invents are stripp
 import json
 import re
 
-from .llm import BudgetExceeded
+from .llm import BudgetExceeded, label as llm_label
 from .store import OUT, iso, now, save_json, short_hash
 
 LABEL_TEXT = {
@@ -132,7 +132,7 @@ def write(llm, topic, record, checked, matches, ledger, note):
         lines.append("None.")
     lines += ["", "---", f"*{NOTICE}*", "",
               f"<sub>Run: {record['new_items']} new items, {len(checked)} claims checked, "
-              f"{llm.calls} LLM calls, ${llm.cost_usd:.3f}.</sub>", ""]
+              f"{llm.calls} LLM calls ({llm_label(llm)}), ${llm.cost_usd:.3f}.</sub>", ""]
 
     path = OUT / topic["id"] / f"{stamp.strftime('%Y-%m-%d_%H%M%S')}{'_ALERT' if alert else ''}.md"
     path.parent.mkdir(parents=True, exist_ok=True)

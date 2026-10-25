@@ -1,6 +1,7 @@
 """Paths, time helpers and the per-topic ledger (what has been seen, verified and briefed)."""
 import hashlib
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -9,6 +10,24 @@ CONFIG = ROOT / "config" / "sources.json"
 TOPICS = ROOT / "topics"
 DATA = ROOT / "data"
 OUT = ROOT / "out"
+
+
+def load_env(path=ROOT / ".env"):
+    """Read KEY=VALUE lines from .env into os.environ; variables already set in the shell win."""
+    path = Path(path)
+    if not path.exists():
+        return False
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, val = line.split("=", 1)
+        val = val.strip()
+        if len(val) >= 2 and val[0] == val[-1] and val[0] in "'\"":
+            val = val[1:-1]
+        if val:
+            os.environ.setdefault(key.strip(), val)
+    return True
 
 
 def now():

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Newsren Technology module: Follow a Topic with evidence verification and cited briefings.
 
+  python3 newsren.py doctor                     check Python, .env, the LLM key and every source (no LLM calls)
+  python3 newsren.py serve [--port 8000]        local web page with the same actions
   python3 newsren.py topics                     list followed topics
   python3 newsren.py run [TOPIC] [--max-calls N]  one monitoring run (all topics if none given)
   python3 newsren.py pending                    briefings waiting for editorial review
@@ -10,13 +12,17 @@
 """
 import argparse
 
-from newsren import brief, explain, follow
-from newsren.store import Ledger, list_topics, load_topic
+from newsren import brief, doctor, explain, follow, web
+from newsren.store import Ledger, list_topics, load_env, load_topic
 
 
 def main():
+    load_env()
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("doctor")
+    s = sub.add_parser("serve")
+    s.add_argument("--port", type=int, default=8000)
     sub.add_parser("topics")
     r = sub.add_parser("run")
     r.add_argument("topic", nargs="?")
@@ -36,7 +42,11 @@ def main():
     l.add_argument("--level", choices=list(explain.LEVELS), help="default: all three")
     args = ap.parse_args()
 
-    if args.cmd == "topics":
+    if args.cmd == "doctor":
+        raise SystemExit(1 if doctor.main() else 0)
+    elif args.cmd == "serve":
+        web.serve(args.port)
+    elif args.cmd == "topics":
         for t in list_topics():
             topic = load_topic(t)
             print(f"{t}: {topic['question']}\n  alert when: {topic['alert_when']}")
