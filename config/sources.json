@@ -1,0 +1,87 @@
+{
+  "_comment": "Approved sources for the Technology module. The agent may only read feeds and search APIs listed here, and may only fetch pages on domains listed under 'domains'. source_type drives the verification rules in newsren/verify.py.",
+  "feeds": [
+    {
+      "id": "openai",
+      "name": "OpenAI News",
+      "url": "https://openai.com/news/rss.xml",
+      "source_type": "vendor"
+    },
+    {
+      "id": "deepmind",
+      "name": "Google DeepMind Blog",
+      "url": "https://deepmind.google/blog/rss.xml",
+      "source_type": "vendor"
+    },
+    {
+      "id": "google-ai",
+      "name": "Google AI Blog",
+      "url": "https://blog.google/technology/ai/rss/",
+      "source_type": "vendor"
+    },
+    {
+      "id": "huggingface",
+      "name": "Hugging Face Blog",
+      "url": "https://huggingface.co/blog/feed.xml",
+      "source_type": "platform"
+    },
+    {
+      "id": "simonw",
+      "name": "Simon Willison",
+      "url": "https://simonwillison.net/atom/everything/",
+      "source_type": "independent_commentary"
+    }
+  ],
+  "search_tools": [
+    "arxiv",
+    "hackernews"
+  ],
+  "domains": {
+    "openai.com": "vendor",
+    "anthropic.com": "vendor",
+    "deepmind.google": "vendor",
+    "blog.google": "vendor",
+    "ai.google.dev": "vendor",
+    "ai.meta.com": "vendor",
+    "about.fb.com": "vendor",
+    "mistral.ai": "vendor",
+    "x.ai": "vendor",
+    "deepseek.com": "vendor",
+    "api-docs.deepseek.com": "vendor",
+    "qwenlm.github.io": "vendor",
+    "microsoft.com": "vendor",
+    "blogs.microsoft.com": "vendor",
+    "nvidia.com": "vendor",
+    "blogs.nvidia.com": "vendor",
+    "apple.com": "vendor",
+    "machinelearning.apple.com": "vendor",
+    "huggingface.co": "platform",
+    "arxiv.org": "paper",
+    "openreview.net": "paper",
+    "aclanthology.org": "paper",
+    "lmarena.ai": "independent_eval",
+    "artificialanalysis.ai": "independent_eval",
+    "epoch.ai": "independent_eval",
+    "metr.org": "independent_eval",
+    "scale.com": "independent_eval",
+    "livebench.ai": "independent_eval",
+    "aider.chat": "independent_eval",
+    "simonwillison.net": "independent_commentary",
+    "theverge.com": "press",
+    "techcrunch.com": "press",
+    "arstechnica.com": "press",
+    "reuters.com": "press",
+    "wired.com": "press",
+    "venturebeat.com": "press",
+    "technologyreview.com": "press",
+    "theinformation.com": "press",
+    "bloomberg.com": "press",
+    "github.com": "code",
+    "news.ycombinator.com": "discussion",
+    "kimi.ai": "vendor",
+    "moonshot.ai": "vendor",
+    "moonshot.cn": "vendor",
+    "z.ai": "vendor",
+    "minimax.io": "vendor"
+  }
+}

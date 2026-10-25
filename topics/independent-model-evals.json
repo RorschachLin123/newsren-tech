@@ -1,0 +1,13 @@
+{
+  "id": "independent-model-evals",
+  "question": "When a new frontier AI model is released, do independent evaluations confirm the developer's benchmark claims?",
+  "alert_when": "A party other than the model's developer publishes benchmark or evaluation results for a recently released AI model, or an independent result contradicts the developer's claims. Opinion pieces, rumors and re-posts of the developer's own numbers do not count.",
+  "min_evidence": "independently_verified",
+  "audience": "professional",
+  "lookback_days": 10,
+  "keywords": ["benchmark", "evaluation", "eval", "leaderboard", "model card", "system card", "outperforms", "state-of-the-art", "sota", "gpt", "gemini", "claude", "llama", "qwen", "deepseek", "mistral"],
+  "arxiv_queries": ["abs:\"large language model\" AND abs:benchmark AND abs:evaluation"],
+  "hn_queries": ["new model benchmark", "LLM evaluation results", "model card"],
+  "max_candidates": 25,
+  "max_new_claims": 5
+}
