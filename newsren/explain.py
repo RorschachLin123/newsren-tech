@@ -27,6 +27,12 @@ LEVELS = {
                      '{"title": "...", "technical_summary": "<2-3 paragraphs>", '
                      '"implications": ["<labelled as supported or speculative>"], "caveats": ["..."]}'),
 }
+# Evaluation rows print "(± x)" from the source's stderr field: one standard error, not a range.
+ERROR_BARS = ("A '±' after a benchmark score is one standard error. Do not present score ± one standard error as "
+              "the range the true value is likely in: that covers only about 68%; a rough 95% range is about two "
+              "standard errors either side. Do not call one model ahead because the ± ranges do not overlap; "
+              "say a gap is clear only if it is larger than about two times the combined error, "
+              "sqrt(a² + b²), and otherwise that the results do not clearly separate the models.")
 ORDER = {"student": ["explainer", "glossary", "check_your_understanding"],
          "educator": ["summary_for_teacher", "learning_goals", "discussion_questions", "activity",
                       "misconceptions_to_watch"],
@@ -156,6 +162,7 @@ Verified claims (use nothing else for facts about this news):
 
 Teach the underlying ideas too (for example what a benchmark is, why an independent evaluation differs
 from a developer's own numbers, what an error bar means), using general knowledge only for definitions.
+{ERROR_BARS}
 Every factual sentence about the news ends with [n] citations from the refs above.
 Return JSON: {shape}""")
         out = clean_citations(out, valid, problems.append)

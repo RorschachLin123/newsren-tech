@@ -109,6 +109,13 @@ class Explain(unittest.TestCase):
         self.assertNotIn("[2]", student)  # [2] would point at the excluded claim's source
         self.assertIn("<details>", student)
 
+    def test_learn_prompt_reads_error_bars_as_standard_errors(self):
+        explain.learn("t", "B1", levels=("student",), log=lambda *a: None)
+        prompt = ScriptedLLM.prompts[0]
+        self.assertIn("one standard error", prompt)
+        self.assertIn("two times the combined error", prompt)
+        self.assertIn("ranges do not overlap", prompt)  # the loose reading is named and ruled out
+
 
 if __name__ == "__main__":
     unittest.main()
