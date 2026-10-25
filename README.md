@@ -133,10 +133,13 @@ original sample run, shown on the web page next to your own.
 Add a topic by copying `topics/independent-model-evals.json`. Reports go to `out/<topic>/`; the ledger is
 `data/<topic>/ledger.json`.
 
-## Sample live runs (2026-10-25, Claude Sonnet 5.5 via `claude -p`)
+## Sample live runs (2026-10-25)
+
+The first two used Claude Sonnet 5.5 via `claude -p`; the third used DeepSeek.
 
 - **Before the evaluation sources were added:** 25 new items, 3–5 claims checked, all *only the originator's claim* (e.g. Moonshot's own Kimi K3.1 Pro benchmarks), so no alert.
 - **With them:** 41 items, 25 new, 5 claims checked. Epoch AI's new runs of DeepSeek V4.1 Flash and Muse Spark Open (GPQA Diamond, FrontierMath) were *independently verified*, with Artificial Analysis's GPQA figure for Muse Spark Open matching Epoch's within a point; Moonshot's Kimi K3.1 Pro claims stayed *originator only*. **Alert drafted**, waiting for editorial review: `out/independent-model-evals/*_ALERT.md`. 8 LLM calls, $0.22, 85 s.
+- **Fresh clone with DeepSeek** (`deepseek-flash`, set up only through `.env`, empty ledger): `doctor` passed; the run read 35 items, 25 new, and checked 5 claims. Epoch AI's own GPQA and FrontierMath results for DeepSeek V4.1 Flash, and its Cyber ECI finding for Z.ai's GLM-5.3, were *independently verified*; Moonshot's Kimi K3.1 Pro claims stayed *originator only*. Alert drafted. 8 LLM calls, $0.011 at peak price, 67 s. The Kimi question then cost 2 calls ($0.002) and cited both Artificial Analysis figures (Opus 5.5 Max 57.6, Kimi 55.1); three learning levels cost 3 calls ($0.005). Outputs: `out/independent-model-evals/2026-10-25_230[78]*`.
 
 ## Known limits / next steps
 
