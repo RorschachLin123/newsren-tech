@@ -59,17 +59,39 @@ Return JSON: {{"headline": "...", "what_changed": "<2-4 sentences>", "why_it_mat
         out = {"headline": "New verified development on your topic",
                "what_changed": " ".join(f"{c['text']} [{c['evidence'][0].get('ref', 1)}]" for c in matches),
                "why_it_matters": "", "watch_next": []}
-    valid = {e["ref"] for e in sources_list}
+    return clean_citations(out, {e["ref"] for e in sources_list}, note)
 
-    def clean(text):
-        def keep(m):
-            if int(m.group(1)) in valid:
-                return m.group(0)
-            note(f"removed invented citation {m.group(0)}")
-            return ""
-        return re.sub(r"\[(\d+)\]", keep, text or "")
 
-    return {k: ([clean(x) for x in v] if isinstance(v, list) else clean(v)) for k, v in out.items()}
+def clean_citations(value, valid, note):
+    """Strip [n] citations that point at no listed source, in a string or nested lists/dicts of strings."""
+    if isinstance(value, dict):
+        return {k: clean_citations(v, valid, note) for k, v in value.items()}
+    if isinstance(value, list):
+        return [clean_citations(v, valid, note) for v in value]
+    if not isinstance(value, str):
+        return value
+
+    def keep(m):
+        if int(m.group(1)) in valid:
+            return m.group(0)
+        note(f"removed invented citation {m.group(0)}")
+        return ""
+    return re.sub(r"\[(\d+)\]", keep, value)
+
+
+def source_line(e):
+    flags = []
+    if not e.get("approved_domain", True):
+        flags.append("not on approved list, not counted")
+    if (e.get("via") or "").startswith("data:"):
+        flags.append("structured data row, sentence rendered by Newsren from the published data")
+    if e["source_type"] == "paper":
+        flags.append("preprint, not peer reviewed" if "arxiv.org" in e["domain"] else "paper")
+    if e.get("unchecked"):
+        flags.append("retrieved for this question, not rule-checked")
+    return (f"{e['ref']}. [{e['title']}]({e['url']}) · {e['publisher']} ({e['source_type']}"
+            f"{'; ' + '; '.join(flags) if flags else ''}) · published {e['published'] or 'unknown'}"
+            f" · retrieved {e['retrieved_at']}")
 
 
 def write(llm, topic, record, checked, matches, ledger, note):
@@ -105,17 +127,7 @@ def write(llm, topic, record, checked, matches, ledger, note):
         lines += ["### What we could not verify", ""] + [f"- {c['text']}: {c['note']}" for c in gaps] + [""]
 
     lines += ["### Sources", ""]
-    for e in sources_list:
-        flags = []
-        if not e.get("approved_domain", True):
-            flags.append("not on approved list, not counted")
-        if (e.get("via") or "").startswith("data:"):
-            flags.append("structured data row, sentence rendered by Newsren from the published data")
-        if e["source_type"] == "paper":
-            flags.append("preprint, not peer reviewed" if "arxiv.org" in e["domain"] else "paper")
-        lines.append(f"{e['ref']}. [{e['title']}]({e['url']}) · {e['publisher']} ({e['source_type']}"
-                     f"{'; ' + '; '.join(flags) if flags else ''}) · published {e['published'] or 'unknown'}"
-                     f" · retrieved {e['retrieved_at']}")
+    lines += [source_line(e) for e in sources_list]
     if not sources_list:
         lines.append("None.")
     lines += ["", "---", f"*{NOTICE}*", "",

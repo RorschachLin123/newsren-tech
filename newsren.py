@@ -5,10 +5,12 @@
   python3 newsren.py run [TOPIC] [--max-calls N]  one monitoring run (all topics if none given)
   python3 newsren.py pending                    briefings waiting for editorial review
   python3 newsren.py approve TOPIC BRIEFING_ID --editor NAME
+  python3 newsren.py ask TOPIC "QUESTION" [--audience student|educator|professional]
+  python3 newsren.py learn TOPIC BRIEFING_ID [--level student|educator|professional]
 """
 import argparse
 
-from newsren import brief, follow
+from newsren import brief, explain, follow
 from newsren.store import Ledger, list_topics, load_topic
 
 
@@ -24,6 +26,14 @@ def main():
     a.add_argument("topic")
     a.add_argument("briefing")
     a.add_argument("--editor", required=True)
+    q = sub.add_parser("ask")
+    q.add_argument("topic")
+    q.add_argument("question")
+    q.add_argument("--audience", choices=list(explain.LEVELS))
+    l = sub.add_parser("learn")
+    l.add_argument("topic")
+    l.add_argument("briefing")
+    l.add_argument("--level", choices=list(explain.LEVELS), help="default: all three")
     args = ap.parse_args()
 
     if args.cmd == "topics":
@@ -41,6 +51,11 @@ def main():
     elif args.cmd == "approve":
         b = brief.approve(Ledger(args.topic), args.topic, args.briefing, args.editor)
         print(f"approved {b['id']} by {b['approved_by']}; delivered to out/alerts.jsonl")
+    elif args.cmd == "ask":
+        path, out = explain.ask(args.topic, args.question, args.audience)
+        print("\n" + out.get("answer", ""))
+    elif args.cmd == "learn":
+        explain.learn(args.topic, args.briefing, [args.level] if args.level else list(explain.LEVELS))
 
 
 if __name__ == "__main__":

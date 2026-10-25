@@ -57,6 +57,23 @@ The LLM never decides the label directly. This is what separates a vendor announ
 - LLM call budget per run (`--max-calls`, default 20); each run logs calls, cost (USD) and duration in the ledger, for the plan's cost metric.
 - Human approval before delivery.
 
+## Ask Newsren and News-to-Learning (`newsren/explain.py`)
+
+**Ask Newsren** (plan 2.1, "Ask about this story"): `ask TOPIC "question"`.
+1. One LLM call plans: which already-checked claims answer the question, and whether a lookup is needed.
+2. If so, a bounded lookup in the approved tools (independent evaluation data, arXiv, Hacker News), at most 6 extra sources, marked *"retrieved for this question, not rule-checked"*.
+3. One LLM call answers, citing `[n]`, keeping developer claims apart from independent results and listing what could not be verified. Invented citations are stripped. Asking never writes to the ledger.
+
+**News-to-Learning** (plan 2.3): `learn TOPIC BRIEFING_ID`. Only the briefing's *independently verified* claims are used as facts; the rest are left out. One LLM call per level:
+
+| Level | Output |
+|---|---|
+| student | 5-minute explainer, glossary, check-your-understanding questions with hidden answers |
+| educator | teacher summary, learning goals, discussion questions, one classroom activity, misconceptions to watch |
+| professional | technical summary, implications labelled supported or speculative, caveats |
+
+Concepts behind the news (what a benchmark is, why independent evaluation matters, what an error bar means) are taught too; facts about the news itself must carry citations.
+
 ## Run it
 
 Python 3.10+, no third-party packages. LLM access: the Claude Code CLI (`claude -p`, default) or set `ANTHROPIC_API_KEY` to call the API directly.
@@ -66,7 +83,9 @@ python3 newsren.py topics
 python3 newsren.py run independent-model-evals
 python3 newsren.py pending
 python3 newsren.py approve independent-model-evals <BRIEFING_ID> --editor <name>
-python3 -m unittest discover tests      # label rules + offline end-to-end (alert -> approval -> dedup)
+python3 newsren.py ask independent-model-evals "Has anyone independently tested Kimi K3.1 Pro?"
+python3 newsren.py learn independent-model-evals <BRIEFING_ID> --level student
+python3 -m unittest discover tests      # offline, no model calls: label rules, alert -> approval -> dedup, ask, learn
 ```
 
 Add a topic by copying `topics/independent-model-evals.json`. Reports go to `out/<topic>/`; the ledger is `data/<topic>/ledger.json`.
@@ -82,4 +101,4 @@ Add a topic by copying `topics/independent-model-evals.json`. Reports go to `out
 - LMArena's dataset API is sometimes flaky (HTTP 500 on `/filter`); we use `/rows`. Artificial Analysis data is scraped from their page and may break if the page changes; their key-based API would be sturdier.
 - Hacker News search is keyword AND-matching; queries back off to shorter forms, but recall is still limited.
 - Story timelines (plan 2.2) are only claim histories in the ledger; no clustering or timeline UI yet.
-- Not built yet: Ask Newsren (Q&A), Research Paper Decoder, News-to-Learning audience levels, web UI, scheduled runs.
+- Not built yet: Research Paper Decoder, story timeline view, web UI, scheduled runs.
