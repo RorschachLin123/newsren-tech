@@ -81,7 +81,7 @@ Needs Python 3.10 or newer and nothing else: no packages to install. On Windows 
 **1. Get the code**
 
 ```bash
-git clone <this repository's URL>
+git clone https://github.com/RorschachLin123/newsren-tech.git
 cd newsren-tech
 ```
 
