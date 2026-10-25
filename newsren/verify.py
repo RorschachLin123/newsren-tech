@@ -49,10 +49,10 @@ Return JSON:
     return llm.json(prompt).get("items", [])
 
 
-def gather_evidence(claim, origin, pool, log, limit=8, max_eval_rows=4):
+def gather_evidence(claim, origin, pool, log, limit=6):
     """Collect evidence: the claim's own source, independent evaluation data for the models it names,
     the approved search tools, and this run's other candidates (in that order of priority)."""
-    eval_rows = evals.lookup(claim.get("models") or [], log)[:max_eval_rows]
+    eval_rows = evals.lookup(claim.get("models") or [], log)
     searched = []
     for q in claim.get("search_queries", [])[:2]:
         searched += sources.search_evidence(q, log)
@@ -69,8 +69,10 @@ def gather_evidence(claim, origin, pool, log, limit=8, max_eval_rows=4):
             if overlap >= need:
                 picked.append((tier, -overlap, it))
     picked.sort(key=lambda t: t[:2])
+    # The origin and the evaluation rows are always kept; `limit` caps search hits and other candidates.
+    kept = [p for p in picked if p[0] <= 1] + [p for p in picked if p[0] > 1][:limit]
     evidence = []
-    for n, (_, _, it) in enumerate(picked[:limit], 1):
+    for n, (_, _, it) in enumerate(kept, 1):
         # Data rows already carry their rendered text; pages are fetched (approved domains only).
         text = it.get("text") or sources.fetch_text(it["url"]) or ""
         approved, _ = sources.classify(it["url"])

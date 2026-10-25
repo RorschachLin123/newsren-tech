@@ -34,6 +34,7 @@ LEDGER = {
 
 class ScriptedLLM:
     prompts = []
+    lookup = False
 
     def __init__(self, max_calls=20, **_):
         self.calls, self.cost_usd = 0, 0.0
@@ -42,7 +43,8 @@ class ScriptedLLM:
         self.calls += 1
         ScriptedLLM.prompts.append(prompt)
         if prompt.startswith("A reader asks"):
-            return {"claim_ids": ["C1", "C2", "C9"], "needs_lookup": False}
+            return {"claim_ids": ["C1", "C2", "C9"], "needs_lookup": ScriptedLLM.lookup,
+                    "models": ["Model X", "Model Y"], "search_queries": ["model x"]}
         if prompt.startswith("Answer the reader"):
             return {"answer": "Epoch measured 0.93 [1]. The lab's own claim is unverified [2]. Rumour [7].",
                     "could_not_verify": ["Whether the lab's claim holds"], "follow_up_questions": []}
@@ -68,6 +70,7 @@ class Explain(unittest.TestCase):
             p.start()
             self.addCleanup(p.stop)
         ScriptedLLM.prompts = []
+        ScriptedLLM.lookup = False
         self.ledger_file = tmp / "data" / "t" / "ledger.json"
 
     def test_ask_cites_only_real_sources_and_keeps_labels(self):
@@ -78,6 +81,22 @@ class Explain(unittest.TestCase):
         self.assertIn("Only the originator's claim", ScriptedLLM.prompts[1])  # label passed to the model
         self.assertIn("https://logs.epoch.ai/1", text)
         self.assertEqual(json.loads(self.ledger_file.read_text()), LEDGER)  # ask never writes the ledger
+
+    def test_ask_lookup_keeps_every_eval_row(self):
+        ScriptedLLM.lookup = True
+        rows = [{"url": f"https://artificialanalysis.ai/models/m{i}", "title": f"AA row {i}", "summary": "",
+                 "text": f"row {i}", "publisher": "Artificial Analysis", "domain": "artificialanalysis.ai",
+                 "source_type": "independent_eval", "published": None, "retrieved_at": "2026-10-25T00:00:00Z",
+                 "via": "data:artificialanalysis"} for i in range(8)]
+        hits = [dict(r, url=f"https://news.ycombinator.com/item?id={i}", title=f"HN {i}", via="search:hackernews",
+                     source_type="discussion") for i, r in enumerate(rows)]
+        with mock.patch.object(evals, "lookup", lambda *a, **k: rows), \
+                mock.patch.object(sources, "search_evidence", lambda *a: hits), \
+                mock.patch.object(sources, "fetch_text", lambda url, **k: "page"):
+            path, _ = explain.ask("t", "How does Model X compare to Model Y?", log=lambda *a: None)
+        text = path.read_text()
+        self.assertEqual(sum(f"AA row {i}]" in text for i in range(8)), 8)  # none cut
+        self.assertEqual(text.count("HN "), 3)  # search hits still capped (3 per query)
 
     def test_learn_uses_only_verified_claims(self):
         paths = explain.learn("t", "B1", log=lambda *a: None)

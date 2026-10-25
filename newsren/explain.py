@@ -73,11 +73,14 @@ Return JSON: {{"claim_ids": ["..."], "needs_lookup": false, "models": ["..."], "
     used = {cid: claims[cid] for cid in plan.get("claim_ids", []) if cid in claims}
     extra = []
     if plan.get("needs_lookup"):
+        # Every evaluation row is kept (one per model per source, plus a few); search hits are capped.
         found = evals.lookup(plan.get("models") or [], note)
+        searched = []
         for q in (plan.get("search_queries") or [])[:2]:
-            found += sources.search_evidence(q, note)[:3]
+            searched += sources.search_evidence(q, note)[:3]
+        found += searched[:4]
         known = {e["url"] for e in sources_list}
-        for it in found[:6]:
+        for it in found:
             if it["url"] in known:
                 continue
             known.add(it["url"])

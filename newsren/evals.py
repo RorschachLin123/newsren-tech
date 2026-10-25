@@ -211,16 +211,26 @@ def aa_lookup(model, limit=2):
 
 # ---- entry points -----------------------------------------------------------
 
-def lookup(models, log):
-    """Evidence for a claim: every independent result we hold for the named models."""
-    out = []
+LOOKUPS = (("epoch", epoch_lookup), ("lmarena", lmarena_lookup), ("artificialanalysis", aa_lookup))
+
+
+def lookup(models, log, extra=2):
+    """Evidence for a claim about up to 3 models. Always returns the best row each source has for each
+    model (so one source with many rows cannot crowd out another), then up to `extra` further rows."""
+    groups = []
     for model in models[:3]:
-        for name, fn in (("epoch", epoch_lookup), ("lmarena", lmarena_lookup), ("artificialanalysis", aa_lookup)):
+        for name, fn in LOOKUPS:
             try:
-                out += fn(model)
+                rows = fn(model)
             except Exception as e:
                 log(f"{name} lookup '{model}' failed: {e}")
-    return out
+                continue
+            if rows:
+                groups.append(rows)
+    first = [g[0] for g in groups]
+    rest = [g[i] for i in range(1, max((len(g) for g in groups), default=0))  # round-robin over groups
+            for g in groups if i < len(g)]
+    return first + rest[:extra]
 
 
 def discover(since, log):
