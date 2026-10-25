@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from newsren import brief, follow, sources, store
+from newsren import brief, evals, follow, sources, store
 
 VENDOR = {"id": "v1", "url": "https://openai.com/index/model-x", "title": "Introducing Model X",
           "published": "2026-10-24T10:00:00Z", "retrieved_at": "2026-10-25T10:00:00Z",
@@ -30,13 +30,13 @@ class ScriptedLLM:
         self.calls += 1
         if "Candidate items" in prompt:
             return {"items": [{"id": "v1", "relevant": True, "reason": "new model claim", "claims": [
-                {"text": "Model X scores 80% on BenchY", "originator": "OpenAI", "originator_domain": "openai.com",
+                {"text": "Model X scores 80% on BenchY", "originator": "OpenAI", "developer": "OpenAI", "developer_domain": "openai.com", "models": ["Model X"],
                  "importance": 3, "same_as": None, "search_queries": ["Model X BenchY"]}]}]}
         if "Evidence items" in prompt:
             return {"evidence": [
-                {"id": "E1", "stance": "supports", "basis": "reports_originator", "same_org_as_originator": True,
+                {"id": "E1", "stance": "supports", "basis": "reports_originator", "same_org_as_developer": True,
                  "quote": "Model X scores 80% on BenchY."},
-                {"id": "E2", "stance": "supports", "basis": "own_testing", "same_org_as_originator": False,
+                {"id": "E2", "stance": "supports", "basis": "own_testing", "same_org_as_developer": False,
                  "quote": "In our tests Model X scored 79.5% on BenchY."}],
                 "note": "An independent run reproduces the score within 0.5 points."}
         if "alerted only when" in prompt:
@@ -60,11 +60,23 @@ class Pipeline(unittest.TestCase):
                    mock.patch.object(brief, "OUT", tmp / "out"), mock.patch.object(follow, "LLM", ScriptedLLM),
                    mock.patch.object(sources, "discover", lambda *a: [dict(VENDOR)]),
                    mock.patch.object(sources, "search_evidence", lambda *a: [dict(EVAL)]),
-                   mock.patch.object(sources, "fetch_text", lambda url, **k: TEXT.get(url))]
+                   mock.patch.object(sources, "fetch_text", lambda url, **k: TEXT.get(url)),
+                   mock.patch.object(evals, "lookup", lambda *a: []), mock.patch.object(evals, "discover", lambda *a: [])]
         for p in patches:
             p.start()
             self.addCleanup(p.stop)
         self.out = tmp / "out"
+
+    def test_evaluator_result_counts_as_independent(self):
+        """An Epoch AI run of someone else's model is independent of that model's developer."""
+        row = evals._row_item("https://logs.epoch.ai/run/1", "Epoch AI: model-x on BenchY", "Epoch AI (own evaluation)",
+                              "independent_eval", "2026-10-24T00:00:00Z",
+                              "Epoch AI ran BenchY itself on model-x on 2026-10-24: mean score 0.795.", "data:epoch")
+        e = row | {"stance": "supports", "basis": "own_testing", "same_org": False, "quote_found": True,
+                   "approved_domain": True}
+        from newsren.verify import label
+        self.assertEqual(label([e], "openai.com"), "independently_verified")
+        self.assertEqual(label([e], "epoch.ai"), "originator_claim_only")  # Epoch cannot verify its own model
 
     def test_alert_review_and_dedup(self):
         rec = follow.run("independent-model-evals", log=lambda *a: None)

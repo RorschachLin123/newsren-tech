@@ -30,11 +30,28 @@
       "name": "Simon Willison",
       "url": "https://simonwillison.net/atom/everything/",
       "source_type": "independent_commentary"
+    },
+    {
+      "id": "epoch",
+      "name": "Epoch AI",
+      "url": "https://epoch.ai/atom.xml",
+      "source_type": "independent_eval",
+      "keyword_filter": false
+    },
+    {
+      "id": "metr",
+      "name": "METR",
+      "url": "https://metr.org/feed.xml",
+      "source_type": "independent_eval",
+      "keyword_filter": false
     }
   ],
   "search_tools": [
     "arxiv",
-    "hackernews"
+    "hackernews",
+    "epoch_benchmarks",
+    "lmarena_leaderboard",
+    "artificialanalysis_models"
   ],
   "domains": {
     "openai.com": "vendor",

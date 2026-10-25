@@ -154,7 +154,7 @@ def discover(topic, since, log):
         try:
             for it in read_feed(feed, since):
                 text = (it["title"] + " " + it["summary"]).lower()
-                if any(k in text for k in kw):
+                if not feed.get("keyword_filter", True) or any(k in text for k in kw):
                     items.append(it)
         except Exception as e:  # one broken feed should not stop the run
             log(f"feed {feed['id']} failed: {e}")

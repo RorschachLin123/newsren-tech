@@ -7,7 +7,7 @@ import json
 import time
 from datetime import timedelta
 
-from . import brief, sources, verify
+from . import brief, evals, sources, verify
 from .llm import LLM, BudgetExceeded
 from .store import Ledger, iso, load_topic, now, short_hash
 
@@ -49,8 +49,10 @@ def run(topic_id, max_calls=20, log=print):
         log("  ! " + msg)
 
     log(f"[{topic_id}] discovering items since {iso(since)}")
-    found = sources.discover(topic, since, note)
-    fresh = [it for it in found if not ledger.is_seen(it["url"])][: topic.get("max_candidates", 25)]
+    found = sources.discover(topic, since, note) + evals.discover(since, note)
+    fresh = [it for it in found if not ledger.is_seen(it["url"])]
+    fresh.sort(key=lambda it: it["source_type"] != "independent_eval")  # evaluation results first
+    fresh = fresh[: topic.get("max_candidates", 25)]
     record.update(discovered=len(found), new_items=len(fresh))
     log(f"  {len(found)} items found, {len(fresh)} not seen before")
 
@@ -79,7 +81,7 @@ def run(topic_id, max_calls=20, log=print):
             pool = [it for it in fresh if it is not c["origin"]]
             lab, evidence, why = verify.verify_claim(llm, c, c["origin"], pool, note)
             claim = {"id": c["id"], "text": c["text"], "originator": c.get("originator"),
-                     "originator_domain": c.get("originator_domain"), "label": lab, "note": why,
+                     "developer": c.get("developer"), "developer_domain": c.get("developer_domain"), "label": lab, "note": why,
                      "update_of": c["update_of"], "evidence": [_slim(e) for e in evidence]}
             checked.append(claim)
             log(f"  - {lab:24} {c['text'][:90]}")
@@ -92,7 +94,7 @@ def run(topic_id, max_calls=20, log=print):
     for c in checked:
         entry = ledger.data["claims"].setdefault(c["id"], {"first_seen": iso(started), "history": []})
         entry["history"].append({"at": iso(started), "label": c["label"]})
-        entry.update({k: c[k] for k in ("text", "originator", "originator_domain", "label", "note", "evidence")})
+        entry.update({k: c[k] for k in ("text", "originator", "developer", "developer_domain", "label", "note", "evidence")})
     for it in fresh:
         ledger.mark_seen(it["url"], it["retrieved_at"])
 
@@ -109,6 +111,6 @@ def run(topic_id, max_calls=20, log=print):
 
 
 def _slim(e):
-    keep = ("eid", "url", "title", "publisher", "domain", "source_type", "published", "retrieved_at",
+    keep = ("eid", "url", "via", "title", "publisher", "domain", "source_type", "published", "retrieved_at",
             "stance", "basis", "same_org", "quote", "quote_found", "approved_domain", "full_text")
     return {k: e.get(k) for k in keep}

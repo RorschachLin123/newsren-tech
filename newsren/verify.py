@@ -7,7 +7,7 @@ reports its own testing, and the quote it gave can be found in that source's tex
 import json
 import re
 
-from . import sources
+from . import evals, sources
 
 LABELS = {  # label -> rank used by topic thresholds
     "independently_verified": 3,
@@ -33,36 +33,46 @@ For each candidate, decide if it is relevant to the reader's question. For relev
 2 specific, checkable factual claims (e.g. "Model X scores 85% on benchmark Y", "Lab Z released model X").
 Skip opinions and marketing adjectives. If a claim is the same as an already tracked claim, set same_as to
 that claim's id. For each claim give 1-2 short search queries (2-4 words, most specific name first, e.g.
-"Kimi K3.1 benchmark") that would find independent evidence for or against it.
+"Kimi K3.1 benchmark") that would find independent evidence for or against it, and list the AI models the
+claim is about by their public names (e.g. "Kimi K3.1 Pro", "Claude Opus 5.5"), used to look up leaderboards.
+Also name the developer: the organization that built the model or product the claim is about. For a
+vendor announcement the originator and developer are the same; for an Epoch AI, LMArena, METR or
+Artificial Analysis result the originator is the evaluator and the developer is the model's maker.
 
 Return JSON:
 {{"items": [{{"id": "<candidate id>", "relevant": true, "reason": "<one line>",
   "claims": [{{"text": "...", "originator": "<organization making the claim>",
-    "originator_domain": "<their website domain, e.g. openai.com, or null>",
-    "importance": 1-3, "same_as": "<tracked claim id or null>", "search_queries": ["..."]}}]}}]}}"""
+    "developer": "<organization that built the model/product>",
+    "developer_domain": "<developer's website domain, e.g. openai.com, or null>",
+    "importance": 1-3, "same_as": "<tracked claim id or null>", "search_queries": ["..."],
+    "models": ["..."]}}]}}]}}"""
     return llm.json(prompt).get("items", [])
 
 
-def gather_evidence(claim, origin, pool, log, limit=6):
-    """Collect evidence from the approved search tools plus this run's other candidates."""
+def gather_evidence(claim, origin, pool, log, limit=8, max_eval_rows=4):
+    """Collect evidence: the claim's own source, independent evaluation data for the models it names,
+    the approved search tools, and this run's other candidates (in that order of priority)."""
+    eval_rows = evals.lookup(claim.get("models") or [], log)[:max_eval_rows]
     searched = []
     for q in claim.get("search_queries", [])[:2]:
         searched += sources.search_evidence(q, log)
     words = set(_words(claim["text"]))
-    unique, seen = [], set()
-    # Search hits were already targeted at the claim, so one shared term is enough; other items need two.
-    for need, items in ((0, [origin]), (1, searched), (2, pool)):
+    picked, seen = [], set()
+    # Evaluation rows were looked up by model name and search hits by the claim's own queries,
+    # so they need little or no word overlap; other candidates need two shared terms.
+    for tier, (need, items) in enumerate(((0, [origin]), (0, eval_rows), (1, searched), (2, pool))):
         for it in items:
             if it["url"] in seen:
                 continue
             seen.add(it["url"])
             overlap = len(words & set(_words(it["title"] + " " + it["summary"])))
             if overlap >= need:
-                unique.append((it is origin, overlap, it))
-    unique.sort(key=lambda t: (t[0], t[1]), reverse=True)
+                picked.append((tier, -overlap, it))
+    picked.sort(key=lambda t: t[:2])
     evidence = []
-    for n, (_, _, it) in enumerate(unique[:limit], 1):
-        text = sources.fetch_text(it["url"]) or ""
+    for n, (_, _, it) in enumerate(picked[:limit], 1):
+        # Data rows already carry their rendered text; pages are fetched (approved domains only).
+        text = it.get("text") or sources.fetch_text(it["url"]) or ""
         approved, _ = sources.classify(it["url"])
         evidence.append(it | {"eid": f"E{n}", "approved_domain": approved,
                               "text": text or it["summary"], "full_text": bool(text)})
@@ -75,45 +85,48 @@ def judge(llm, claim, evidence):
               "source_type": e["source_type"], "published": e["published"], "title": e["title"],
               "text": e["text"][:3500]} for e in evidence]
     prompt = f"""Claim: {claim['text']}
-Claim made by: {claim['originator']} ({claim.get('originator_domain') or 'domain unknown'})
+Claim made by: {claim['originator']}
+About a model or product built by: {claim.get('developer') or claim['originator']} ({claim.get('developer_domain') or 'domain unknown'})
 
 Evidence items:
 {json.dumps(shown, indent=1, ensure_ascii=False)}
 
 For every evidence item decide:
 - stance: "supports", "contradicts" or "irrelevant" (irrelevant if it is about something else)
-- basis: "own_testing" (the source ran its own evaluation or measurement), "reports_originator" (it repeats
+- basis: "own_testing" (the source ran its own evaluation or measurement; leaderboard and benchmark rows
+  from Epoch AI's own runs, LMArena or Artificial Analysis count as own testing), "reports_originator" (it repeats
   what the claim's originator said), "opinion", or "unclear"
-- same_org_as_originator: true if the source is published by the organization that made the claim
+- same_org_as_developer: true if the source is published by the developer (or someone repeating only the developer)
 - quote: an exact sentence copied from the item's text that shows the stance (empty if irrelevant)
 
 Then write "note": one or two sentences on what could and could not be verified.
 
-Return JSON: {{"evidence": [{{"id": "E1", "stance": "...", "basis": "...", "same_org_as_originator": false, "quote": "..."}}], "note": "..."}}"""
+Return JSON: {{"evidence": [{{"id": "E1", "stance": "...", "basis": "...", "same_org_as_developer": false, "quote": "..."}}], "note": "..."}}"""
     verdict = llm.json(prompt)
     by_id = {v.get("id"): v for v in verdict.get("evidence", [])}
     for e in evidence:
         v = by_id.get(e["eid"], {})
         e["stance"] = v.get("stance", "irrelevant")
         e["basis"] = v.get("basis", "unclear")
-        e["same_org"] = bool(v.get("same_org_as_originator"))
+        e["same_org"] = bool(v.get("same_org_as_developer"))
         e["quote"] = v.get("quote", "")
         e["quote_found"] = bool(e["quote"]) and _norm(e["quote"]) in _norm(e["text"])
     return verdict.get("note", "")
 
 
-def is_independent(e, originator_domain):
-    """A source independent of whoever made the claim, from an approved domain, that is not just discussion."""
-    same_domain = bool(originator_domain) and (e["domain"] == originator_domain
-                                               or e["domain"].endswith("." + originator_domain))
+def is_independent(e, developer_domain):
+    """A source independent of the developer (the party with a stake in the claim), from an approved
+    domain, that is not just discussion."""
+    same_domain = bool(developer_domain) and (e["domain"] == developer_domain
+                                              or e["domain"].endswith("." + developer_domain))
     return (not e["same_org"] and not same_domain and e.get("approved_domain", True)
             and e["source_type"] not in ("discussion", "unknown"))
 
 
-def label(evidence, originator_domain):
+def label(evidence, developer_domain):
     """Deterministic evidence label for a claim."""
     strong = [e for e in evidence if e["stance"] != "irrelevant" and e["basis"] == "own_testing"
-              and e["quote_found"] and is_independent(e, originator_domain)]
+              and e["quote_found"] and is_independent(e, developer_domain)]
     if any(e["stance"] == "contradicts" for e in strong):
         return "disputed"
     if any(e["stance"] == "supports" for e in strong):
@@ -126,7 +139,7 @@ def label(evidence, originator_domain):
 def verify_claim(llm, claim, origin, pool, log):
     evidence = gather_evidence(claim, origin, pool, log)
     note = judge(llm, claim, evidence)
-    return label(evidence, claim.get("originator_domain")), evidence, note
+    return label(evidence, claim.get("developer_domain")), evidence, note
 
 
 def _words(s):
