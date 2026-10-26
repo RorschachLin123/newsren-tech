@@ -86,6 +86,21 @@ ol.tl li.k-label::before { background:var(--accent); } ol.tl li.k-briefing::befo
         color:var(--muted); margin-left:4px; }
 """
 
+# LLM buttons take 10 seconds to a few minutes with no page change; without feedback readers click again and get
+# "Busy". So a submitted form disables its button and says it is working.
+SUBMIT_JS = """<script>
+document.addEventListener("submit", function (ev) {
+  var f = ev.target, b = f.querySelector("button");
+  if (f.dataset.sent) { ev.preventDefault(); return; }
+  f.dataset.sent = "1";
+  if (b) { b.disabled = true; b.textContent = "Working…"; }
+  var s = document.createElement("span");
+  s.className = "muted";
+  s.textContent = "Running, the result opens here when it is done. Please do not click again.";
+  f.appendChild(s);
+});
+</script>"""
+
 # Each tab opens with three short boxes: what the tool does, how, and what it produced on the live data
 # (numbers from the report, October 25, 2026).
 MODULES = {
@@ -152,7 +167,7 @@ def page(title, body, topic_id=None, tab=None):
     return (f'<!doctype html><html lang="en"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width, initial-scale=1"><title>{html.escape(title)}</title>'
             f'<style>{CSS}</style></head><body><header><div class="top"><b><a href="/" style="text-decoration:none;'
-            f'color:inherit">The Newsren</a></b><nav>{nav}</nav></div>{tabs}</header><main>{body}</main></body></html>')
+            f'color:inherit">The Newsren</a></b><nav>{nav}</nav></div>{tabs}</header><main>{body}</main>{SUBMIT_JS}</body></html>')
 
 
 # ---- Markdown subset used by the reports -------------------------------------------
@@ -556,7 +571,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(404, page("Not found", "<h1>Not found</h1>"))
                 return
             if not BUSY.acquire(blocking=False):
-                show("Busy", ["Another LLM action is still running. Try again shortly."], back, 409)
+                show("Busy", ["Another LLM action is still running, often the same button pressed twice.",
+                              "Its result will appear in the list when it finishes; nothing was lost."], back, 409)
                 return
             try:
                 if action == "run":
