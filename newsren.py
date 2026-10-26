@@ -9,10 +9,13 @@
   python3 newsren.py approve TOPIC BRIEFING_ID --editor NAME
   python3 newsren.py ask TOPIC "QUESTION" [--audience student|educator|professional]
   python3 newsren.py learn TOPIC BRIEFING_ID [--level student|educator|professional]
+  python3 newsren.py decode ARXIV_ID_OR_LINK [--topic TOPIC] [--audience ...]   Paper Decoder (1 LLM call)
+  python3 newsren.py papers [TOPIC]             recent arXiv papers to decode (no LLM calls)
+  python3 newsren.py timeline [TOPIC]           evolution timeline from the ledger (no LLM calls)
 """
 import argparse
 
-from newsren import brief, doctor, explain, follow, web
+from newsren import brief, doctor, explain, follow, papers, timeline, web
 from newsren.store import Ledger, list_topics, load_env, load_topic
 
 
@@ -40,6 +43,14 @@ def main():
     l.add_argument("topic")
     l.add_argument("briefing")
     l.add_argument("--level", choices=list(explain.LEVELS), help="default: all three")
+    d = sub.add_parser("decode")
+    d.add_argument("paper", help="arXiv id or link")
+    d.add_argument("--topic", help="topic for the relevance note and the output folder (default: the first)")
+    d.add_argument("--audience", choices=list(explain.LEVELS), default="professional")
+    pp = sub.add_parser("papers")
+    pp.add_argument("topic", nargs="?")
+    t = sub.add_parser("timeline")
+    t.add_argument("topic", nargs="?")
     args = ap.parse_args()
 
     if args.cmd == "doctor":
@@ -66,6 +77,15 @@ def main():
         print("\n" + out.get("answer", ""))
     elif args.cmd == "learn":
         explain.learn(args.topic, args.briefing, [args.level] if args.level else list(explain.LEVELS))
+    elif args.cmd == "decode":
+        papers.decode(load_topic(args.topic or list_topics()[0]), args.paper, args.audience)
+    elif args.cmd == "papers":
+        topic = load_topic(args.topic or list_topics()[0])
+        for p in papers.recommend(topic, Ledger(topic["id"])):
+            print(f"{p['id']}  {(p['published'] or '')[:10]}  {p['title']}  ({p['why']})")
+    elif args.cmd == "timeline":
+        for tid in [args.topic] if args.topic else list_topics():
+            timeline.write(load_topic(tid), Ledger(tid))
 
 
 if __name__ == "__main__":

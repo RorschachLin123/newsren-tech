@@ -106,9 +106,14 @@ class WebTest(unittest.TestCase):
         (root / "secret.md").write_text("nope")
         topic = {"id": "t", "question": "Q?", "alert_when": "W", "min_evidence": "independently_verified"}
         self.patches = [mock.patch.object(web, "OUT", root / "out"),
+                        mock.patch.object(web.timeline, "OUT", root / "out"),
+                        mock.patch.object(web.papers, "OUT", root / "out"),
                         mock.patch.object(store, "DATA", root / "data"),
                         mock.patch.object(web, "list_topics", lambda: ["t"]),
                         mock.patch.object(web, "load_topic", lambda t: topic),
+                        mock.patch.object(web.papers, "recommend", lambda *a, **k: [
+                            {"id": "2610.00001", "title": "A paper", "published": "2026-10-23T00:00:00Z",
+                             "authors": "arXiv preprint (A, B)", "summary": "abs", "why": "recent on arXiv"}]),
                         mock.patch.dict(os.environ, {}, clear=True)]
         for p in self.patches:
             p.start()
@@ -135,10 +140,35 @@ class WebTest(unittest.TestCase):
         status, body = self.get("/")
         self.assertEqual(status, 200)
         self.assertIn("Q?", body)
+        status, body = self.get("/tech/follow")
+        self.assertEqual(status, 200)
         self.assertIn("2026-10-25_000000_ALERT.md", body)
         status, body = self.get("/view?topic=t&file=2026-10-25_000000_ALERT.md")
         self.assertEqual(status, 200)
         self.assertIn("<h1>Hello</h1>", body)
+
+    def test_every_module_renders_with_an_empty_ledger(self):
+        for tab in web.MODULES:
+            status, body = self.get(f"/tech/{tab}")
+            self.assertEqual(status, 200, tab)
+            self.assertIn(f'class="on" href="/tech/{tab}"', body)
+        self.assertIn("Decode", self.get("/tech/papers")[1])
+        self.assertIn("2610.00001", self.get("/tech/papers")[1])
+        self.assertEqual(self.get("/tech/nope")[0], 404)
+
+    def test_only_technology_is_clickable(self):
+        body = self.get("/")[1]
+        self.assertIn('<a href="/">Technology</a>', body)
+        for v in ("Education", "Industry", "Finance"):
+            self.assertIn(f'aria-disabled="true">{v}</span>', body)
+            self.assertNotIn(f">{v}</a>", body)
+
+    def test_timeline_button_writes_a_report_without_the_llm(self):
+        req = urllib.request.Request(self.base + "/timeline", data=b"topic=t", method="POST")
+        with mock.patch.object(web.llm, "LLM", side_effect=AssertionError("no LLM")):
+            with urllib.request.urlopen(req, timeout=5) as r:
+                self.assertEqual(r.status, 200)
+        self.assertTrue(any(p.name.endswith("_timeline.md") for p in web._files("t")))
 
     def test_only_listed_reports_can_be_read(self):
         self.assertEqual(self.get("/view?topic=t&file=../../secret.md")[0], 404)

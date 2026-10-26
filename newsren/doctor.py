@@ -10,8 +10,10 @@ import urllib.request
 from . import evals, llm, sources
 from .store import DATA, OUT, ROOT
 
-# Rough tokens per command (input, output), from the 2026-10-25 runs: a run is ~8 calls, ask 2, learn 3.
-USAGE = {"run": (60_000, 10_000), "ask": (10_000, 2_500), "learn (3 levels)": (12_000, 6_000)}
+# Rough tokens per command (input, output), from the 2026-10-25 runs: a run is ~8 calls, ask 2, learn 3;
+# decode is 1 call on up to 30,000 characters of paper text (estimate). Timeline makes none.
+USAGE = {"run": (60_000, 10_000), "ask": (10_000, 2_500), "learn (3 levels)": (12_000, 6_000),
+         "decode (1 paper)": (10_000, 2_000)}
 
 
 def _probe(url, method="GET"):

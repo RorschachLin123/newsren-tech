@@ -74,6 +74,56 @@ The LLM never decides the label directly. This is what separates a vendor announ
 
 Concepts behind the news (what a benchmark is, why independent evaluation matters, what an error bar means) are taught too; facts about the news itself must carry citations.
 
+## Research Paper Decoder (`newsren/papers.py`)
+
+Plan section 3: "explain technical papers through hypothesis, method, findings, limitations, and possible
+applications". `decode ARXIV_ID_OR_LINK` reads the paper from arXiv only (an approved domain): the API record
+(title, authors, dates, abstract, journal reference, author comment) and, when arXiv has one, the HTML full text.
+One LLM call writes, for the chosen audience: hypothesis, method, findings, limitations, possible applications,
+relevance to the topic, and terms. Every sentence cites the abstract [1] or the full text [2]; invented
+citations are stripped. Limitations and applications start with *(authors)* or *(our reading)*, so the agent's
+inferences are not passed off as the paper's. The header states the review status: *preprint, not peer
+reviewed* unless the authors list a published version, which is reported as theirs and not checked (plan §6).
+Papers without an HTML version are decoded from the abstract only, and the output says so.
+
+`papers [TOPIC]` lists papers to decode without calling the LLM: recent arXiv results for the topic's
+`arxiv_queries`, plus arXiv sources already cited in checked claims.
+
+## Technology Evolution Timeline (`newsren/timeline.py`)
+
+Plan sections 2.2 and 3. `timeline [TOPIC]` makes **no LLM calls**: the ledger already records, for every source,
+who published it, on what basis, and when it was published and retrieved, plus when each claim was first tracked,
+every label it has had, and each briefing. Code groups claims by the model's developer and orders the events:
+
+| Event | From the ledger |
+|---|---|
+| Developer publication | a source from the developer (release page, model card, blog), kept even when not cited for a claim, because it is the release itself |
+| Repeats the developer | another party relaying the developer's numbers |
+| Independent evaluation | a party other than the developer reporting its own testing |
+| Evidence label | the claim being tracked, and each change of label |
+| Editorial | briefing drafted, approved and delivered |
+
+Each story gets one line such as "Developer's first source 2026-10-17; first independent result 2026-10-19,
+1.7 days later": the delay between a launch and its first independent check, which is what a Launch Reality
+Check reader wants to know. Every node keeps its link. Only what Newsren's runs found appears, so a missing step
+means unseen, not absent.
+
+## Web page (`newsren/web.py`)
+
+`serve` opens a local page laid out like the plan's site (§5): the four verticals in the top bar, with only
+**Technology** active (Education, Industry and Finance are greyed out: not in this prototype). Technology has one
+tab per tool, each starting with *what it does*, *how it works* and the *real result* from the live runs:
+
+| Tab | What you can do | LLM calls |
+|---|---|---|
+| Overview | design rule, coverage of the plan, success metrics, limitations | 0 |
+| Follow a Topic | the saved question, **Run now**, briefings, **Approve and deliver** (editor) | run: ~8 |
+| Launch Reality Check | every claim with its label, sources, basis, quotes and the verifier's note | 0 |
+| Ask Newsren | ask a question, read answers | 2 |
+| Learn | **Explain for** student / educator / professional from a briefing | 1 per level |
+| Paper Decoder | paste an arXiv link or id, or decode a recommended paper | 1 |
+| Timeline | per developer: release, independent evaluations, label changes; **Save as a report** | 0 |
+
 ## Install and reproduce
 
 Needs Python 3.10 or newer and nothing else: no packages to install. On Windows use `python` instead of `python3`.
@@ -106,8 +156,8 @@ python3 newsren.py doctor
 python3 newsren.py serve          # then open http://127.0.0.1:8000
 ```
 
-The page shows the saved question, every claim with its evidence label, and every report. Its buttons are the
-same steps as the commands below: **Run now**, **Ask**, **Explain for** (learning material) and **Approve**.
+The page has one tab per tool (see *Web page* above). Its buttons are the same steps as the commands below:
+**Run now**, **Approve**, **Ask**, **Explain for**, **Decode** and **Save as a report** (timeline).
 
 ```bash
 python3 newsren.py run independent-model-evals            # one Follow a Topic run (~8 LLM calls)
@@ -115,7 +165,10 @@ python3 newsren.py pending                                # drafts waiting for e
 python3 newsren.py approve independent-model-evals <BRIEFING_ID> --editor <name>
 python3 newsren.py ask independent-model-evals "Has anyone independently tested Kimi K3.1 Pro?"   # 2 calls
 python3 newsren.py learn independent-model-evals <BRIEFING_ID> --level student                   # 1 call per level
-python3 -m unittest discover tests      # 30 offline tests, no network or LLM calls
+python3 newsren.py papers                                 # recent arXiv papers to decode (no LLM calls)
+python3 newsren.py decode https://arxiv.org/abs/<ID> --audience student                           # 1 call
+python3 newsren.py timeline                               # evolution timeline from the ledger (no LLM calls)
+python3 -m unittest discover tests      # 42 offline tests, no network or LLM calls
 ```
 
 **Cost.** With DeepSeek (`deepseek-flash`, $0.30 / $1.20 per 1M input / output tokens at peak, half off-peak) a
@@ -146,5 +199,6 @@ The first two used Claude Sonnet 5.5 via `claude -p`; the third used DeepSeek.
 - Model-name matching across sources is string-based (`Kimi K3.1 Pro` ↔ `kimi-k3.1-pro_max`); variants like reasoning effort are treated as the same model.
 - LMArena's dataset API is sometimes flaky (HTTP 500 on `/filter`); we use `/rows`. Artificial Analysis data is scraped from their page and may break if the page changes; their key-based API would be sturdier.
 - Hacker News search is keyword AND-matching; queries back off to shorter forms, but recall is still limited.
-- Story timelines (plan 2.2) are only claim histories in the ledger; no clustering or timeline UI yet.
-- Not built yet: Research Paper Decoder, story timeline view, scheduled runs, email delivery. The web page is a local single-user view, not a public site.
+- Timelines group claims by developer, not by clustered story (plan 2.2); a claim whose developer was not identified lands under "Developer not identified".
+- The Paper Decoder reads arXiv's HTML full text when there is one (cut at 30,000 characters); PDF-only papers are decoded from the abstract.
+- Not built yet: scheduled runs, email delivery. The web page is a local single-user view, not a public site.
