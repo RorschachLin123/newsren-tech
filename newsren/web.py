@@ -127,7 +127,9 @@ MODULES = {
         "Reads the arXiv record and, when arXiv has one, the HTML full text; one model call; every sentence cites "
         "the abstract [1] or full text [2]. Limitations and applications are tagged (authors) or (our reading). "
         "Recommendations come from the topic's arXiv queries, without the model.",
-        "Decoded papers appear below. Recommendations update from arXiv each hour.")),
+        "“On Task, Off Track” (arXiv 2610.32531), read in full: hypothesis, method and five findings, with "
+        "numbers matching the paper (e.g. Meta-SecAlign-70B 3.2% → 36.7%); applications marked speculative. "
+        "1 call, $0.003 with DeepSeek.")),
     "timeline": ("Timeline", (
         "Shows how each story evolved: the developer's release, independent evaluations, and Newsren's label "
         "changes and briefings, in order (plan §2.2, §3 Technology Evolution Timeline).",

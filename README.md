@@ -86,6 +86,9 @@ inferences are not passed off as the paper's. The header states the review statu
 reviewed* unless the authors list a published version, which is reported as theirs and not checked (plan §6).
 Papers without an HTML version are decoded from the abstract only, and the output says so.
 
+Sample (DeepSeek, 1 call, $0.003): `out/independent-model-evals/*_paper_2610.32531.md`, a prompt-injection
+benchmark preprint read in full; its reported numbers were spot-checked against the paper text.
+
 `papers [TOPIC]` lists papers to decode without calling the LLM: recent arXiv results for the topic's
 `arxiv_queries`, plus arXiv sources already cited in checked claims.
 

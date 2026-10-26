@@ -104,6 +104,7 @@ Rules: use only the material above. Every factual sentence about the paper ends 
 Report what the authors claim as their claims ("the authors report"), not as established fact; this is a
 preprint unless a journal reference says otherwise. For limitations and applications, say who says it:
 start each item with "(authors)" if the paper states it, or "(our reading)" if it is your inference.
+Do not list the review status (preprint, journal reference) as a limitation: it is shown separately.
 Applications that the paper does not test are speculative; say so. If only the abstract is available,
 say what cannot be judged from it.
 Return JSON: {{"one_line": "<one sentence: what the paper does>", "hypothesis": "<the question or claim tested>",
