@@ -96,6 +96,9 @@ def _summary(events):
 def summary_line(s):
     m = s["summary"]
     if m["lag_days"] is not None:
+        if m["independent_at"][:10] == m["developer_at"][:10]:
+            return (f"Developer's first source and first independent result both on {m['developer_at'][:10]} "
+                    "(order within the day unknown).")
         if m["lag_days"] < 0:
             return (f"An independent result ({m['independent_at'][:10]}) predates the developer's first source "
                     f"in the ledger ({m['developer_at'][:10]}).")
